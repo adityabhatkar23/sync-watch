@@ -31,7 +31,8 @@ io.on("connection", (socket) => {
       console.log("Host assigned:", socket.id);
     }
 
-    socket.emit("host-info", rooms[roomId].host);
+    const isHost = rooms[roomId].host === socket.id;
+    socket.emit("host-info", { isHost });
   });
 
   socket.on("video-event", ({ roomId, type, currentTime }) => {

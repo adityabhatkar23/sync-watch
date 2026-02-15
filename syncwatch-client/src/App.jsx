@@ -18,8 +18,8 @@ function App() {
   };
 
   useEffect(() => {
-    socket.on("host-info", (hostId) => {
-      setIsHost(socket.id === hostId);
+    socket.on("host-info", ({ isHost }) => {
+      setIsHost(isHost);
     });
 
     socket.on("sync-video", ({ type, currentTime }) => {
