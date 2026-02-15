@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basic Custom Video Player</title>
+    <style>
+        /* MINIMAL STYLING: Add your custom design here */
+        .player-container {
+            max-width: 800px;
+            margin: 20px auto;
+            border: 2px solid #333;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            transition: all 0.3s ease;
+            font-family: sans-serif;
+        }
+
+        /* Native Fullscreen Styling */
+        .player-container:fullscreen {
+            max-width: none;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border: none;
+            border-radius: 0;
+        }
+
+        /* Pseudo-Fullscreen Fallback (Full Window) */
+        .player-container.pseudo-fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            max-width: none;
+            margin: 0;
+            border-radius: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        video {
+            width: 100%;
+            display: block;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #f4f4f4;
+            color: #333;
+            z-index: 10;
+        }
+
+        /* Keep controls at bottom in both fullscreen modes */
+        .player-container:fullscreen .controls,
+        .player-container.pseudo-fullscreen .controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+
+        button {
+            padding: 6px 12px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 4px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:hover {
+            background: #e9e9e9;
+        }
+
+        input[type="range"] {
+            cursor: pointer;
+        }
+
+        #progressBar {
+            flex: 1;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        #volumeSlider {
+            width: 80px;
+        }
+
+        .time-display {
+            font-family: monospace;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        /* Settings Pop-up Styling */
+        .settings-menu {
+            position: absolute;
+            bottom: 60px;
+            right: 12px;
+            width: 200px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            padding: 8px 0;
+            z-index: 20;
+        }
+
+        .settings-menu.active {
+            display: flex;
+        }
+
+        .settings-item {
+            padding: 10px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #333;
+        }
+
+        .settings-item:hover {
+            background: #f0f0f0;
+        }
+
+        .settings-item span.val {
+            color: #666;
+            font-size: 12px;
+        }
+
+        /* Nested menu for speed selection (simplified) */
+        .speed-options {
+            display: none;
+            padding: 4px 0;
+            border-top: 1px solid #eee;
+            background: #fafafa;
+        }
+        
+        .speed-options.active {
+            display: block;
+        }
+
+        .speed-opt {
+            padding: 6px 30px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .speed-opt:hover {
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="player-container" id="playerContainer">
+        <!-- Video Source -->
+        <video id="myVideo">
+            <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+
+        <!-- Settings Pop-up -->
+        <div class="settings-menu" id="settingsMenu">
+            <div class="settings-item" id="speedToggle">
+                <span>Playback Speed</span>
+                <span class="val" id="currentSpeed">1x</span>
+            </div>
+            <div class="speed-options" id="speedOptions">
+                <div class="speed-opt" data-speed="0.5">0.5x</div>
+                <div class="speed-opt" data-speed="1">1x (Normal)</div>
+                <div class="speed-opt" data-speed="1.5">1.5x</div>
+                <div class="speed-opt" data-speed="2">2x</div>
+            </div>
+            <div class="settings-item">
+                <span>Audio Track</span>
+                <span class="val">English</span>
+            </div>
+            <div class="settings-item">
+                <span>Subtitles</span>
+                <span class="val">Off</span>
+            </div>
+        </div>
+
+        <!-- Control UI -->
+        <div class="controls">
+            <button id="back10">-10s</button>
+            <button id="playPause">Play</button>
+            <button id="forward10">+10s</button>
+            
+            <input type="range" id="progressBar" value="0" min="0" max="100" step="0.1">
+            
+            <div class="time-display">
+                <span id="currentTime">0:00</span> / <span id="duration">0:00</span>
+            </div>
+
+            <div class="volume-control">
+                <button id="muteToggle">Mute</button>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1">
+            </div>
+
+            <!-- Settings Button -->
+            <button id="settingsBtn" title="Settings">⚙️</button>
+            
+            <button id="fullscreenBtn">Full</button>
+        </div>
+    </div>
+
+    <script>
+        const playerContainer = document.getElementById('playerContainer');
+        const video = document.getElementById('myVideo');
+        const playBtn = document.getElementById('playPause');
+        const backBtn = document.getElementById('back10');
+        const forwardBtn = document.getElementById('forward10');
+        const progressBar = document.getElementById('progressBar');
+        const currentTimeText = document.getElementById('currentTime');
+        const durationText = document.getElementById('duration');
+        const muteBtn = document.getElementById('muteToggle');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        
+        // Settings Elements
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsMenu = document.getElementById('settingsMenu');
+        const speedToggle = document.getElementById('speedToggle');
+        const speedOptions = document.getElementById('speedOptions');
+        const currentSpeedText = document.getElementById('currentSpeed');
+
+        let lastVolume = 1;
+
+        playBtn.addEventListener('click', () => {
+            if (video.paused) {
+                video.play();
+                playBtn.innerText = 'Pause';
+            } else {
+                video.pause();
+                playBtn.innerText = 'Play';
+            }
+        });
+
+        backBtn.addEventListener('click', () => {
+            video.currentTime = Math.max(0, video.currentTime - 10);
+        });
+
+        forwardBtn.addEventListener('click', () => {
+            video.currentTime = Math.min(video.duration, video.currentTime + 10);
+        });
+
+        video.addEventListener('timeupdate', () => {
+            const progress = (video.currentTime / video.duration) * 100;
+            progressBar.value = progress || 0;
+            currentTimeText.innerText = formatTime(video.currentTime);
+        });
+
+        video.addEventListener('loadedmetadata', () => {
+            durationText.innerText = formatTime(video.duration);
+        });
+
+        progressBar.addEventListener('input', () => {
+            const seekTime = (progressBar.value / 100) * video.duration;
+            video.currentTime = seekTime;
+        });
+
+        volumeSlider.addEventListener('input', () => {
+            video.volume = volumeSlider.value;
+            video.muted = (video.volume === 0);
+            if (video.volume > 0) lastVolume = video.volume;
+            updateVolumeUI();
+        });
+
+        muteBtn.addEventListener('click', () => {
+            video.muted = !video.muted;
+            updateVolumeUI();
+        });
+
+        function updateVolumeUI() {
+            if (video.muted || video.volume === 0) {
+                muteBtn.innerText = 'Unmute';
+                volumeSlider.value = 0;
+            } else {
+                muteBtn.innerText = 'Mute';
+                video.volume = lastVolume;
+                volumeSlider.value = lastVolume;
+            }
+        }
+
+        // SETTINGS LOGIC
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsMenu.classList.toggle('active');
+        });
+
+        // Close menu if clicking outside
+        document.addEventListener('click', (e) => {
+            if (!settingsMenu.contains(e.target) && e.target !== settingsBtn) {
+                settingsMenu.classList.remove('active');
+                speedOptions.classList.remove('active');
+            }
+        });
+
+        // Speed Submenu Toggle
+        speedToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            speedOptions.classList.toggle('active');
+        });
+
+        // Speed Selection
+        document.querySelectorAll('.speed-opt').forEach(opt => {
+            opt.addEventListener('click', () => {
+                const speed = parseFloat(opt.dataset.speed);
+                video.playbackRate = speed;
+                currentSpeedText.innerText = speed + 'x';
+                speedOptions.classList.remove('active');
+                settingsMenu.classList.remove('active');
+            });
+        });
+
+        // FULLSCREEN LOGIC WITH FALLBACK
+        fullscreenBtn.addEventListener('click', () => {
+            const isPseudo = playerContainer.classList.contains('pseudo-fullscreen');
+            
+            if (!document.fullscreenElement && !isPseudo) {
+                playerContainer.requestFullscreen().catch(err => {
+                    playerContainer.classList.add('pseudo-fullscreen');
+                    fullscreenBtn.innerText = 'Exit';
+                });
+            } else {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                }
+                playerContainer.classList.remove('pseudo-fullscreen');
+                fullscreenBtn.innerText = 'Full';
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && !playerContainer.classList.contains('pseudo-fullscreen')) {
+                fullscreenBtn.innerText = 'Full';
+            }
+        });
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+    </script>
+</body>
+</html>
