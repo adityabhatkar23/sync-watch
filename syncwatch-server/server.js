@@ -99,6 +99,33 @@ io.on("connection", (socket) => {
       }
     }
   });
+
+  socket.on("leave-room", ({ roomId }) => {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  const userId = room.users[socket.id];
+  delete room.users[socket.id];
+
+  socket.leave(roomId);
+
+  if (room.hostUserId === userId) {
+    const remainingUsers = Object.values(room.users);
+
+    if (remainingUsers.length > 0) {
+      room.hostUserId = remainingUsers[0];
+      console.log("New host assigned:", room.hostUserId);
+
+      io.to(roomId).emit("host-changed", {
+        hostUserId: room.hostUserId,
+      });
+    } else {
+      delete rooms[roomId];
+      console.log("Room deleted:", roomId);
+    }
+  }
+});
+
 });
 
 app.get("/health", (req, res) => {

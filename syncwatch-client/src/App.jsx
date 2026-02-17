@@ -56,9 +56,14 @@ function App() {
       }, 200);
     });
 
+    socket.on("host-changed", ({ hostUserId }) => {
+      setIsHost(hostUserId === userId);
+    });
+
     return () => {
       socket.off("host-info");
       socket.off("sync-video");
+      socket.off("host-changed");
     };
   }, []);
 
@@ -92,6 +97,16 @@ function App() {
     });
   };
 
+  const leaveRoom = () => {
+    socket.emit("leave-room", { roomId });
+
+    localStorage.removeItem("roomId");
+
+    setJoined(false);
+    setIsHost(false);
+    setRoomId("");
+  };
+
   if (!joined) {
     return (
       <div style={{ padding: "40px" }}>
@@ -112,6 +127,7 @@ function App() {
     <div style={{ padding: "20px" }}>
       <h3>Room: {roomId}</h3>
       <p>{isHost ? "You are Host" : "You are Viewer"}</p>
+      <button onClick={leaveRoom}>Leave Room</button>
 
       <input
         type="file"
