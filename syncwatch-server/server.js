@@ -23,41 +23,91 @@ const rooms = {};
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  socket.on("join-room", (roomId) => {
+  socket.on("join-room", ({ roomId, userId }) => {
     socket.join(roomId);
 
     if (!rooms[roomId]) {
       rooms[roomId] = {
-        host: socket.id,
+        hostUserId: userId,
+        users: {},
+        state: {
+          currentTime: 0,
+          isPlaying: false,
+        },
       };
-      console.log("Host assigned:", socket.id);
     }
 
-    const isHost = rooms[roomId].host === socket.id;
+    rooms[roomId].users[socket.id] = userId;
+    const isHost = rooms[roomId].hostUserId === userId;
     socket.emit("host-info", { isHost });
+    const { currentTime, isPlaying } = rooms[roomId].state;
+    socket.emit("sync-video", {
+      type: isPlaying ? "play" : "pause",
+      currentTime,
+    });
   });
 
   socket.on("video-event", ({ roomId, type, currentTime }) => {
-    if (rooms[roomId]?.host === socket.id) {
-      socket.to(roomId).emit("sync-video", {
-        type,
-        currentTime,
-      });
-    }
+    const room = rooms[roomId];
+    if (!room) return;
+
+    const userId = room.users[socket.id];
+
+    if (room.hostUserId !== userId) return;
+
+    room.state.currentTime = currentTime;
+    room.state.isPlaying = type === "play";
+
+    socket.to(roomId).emit("sync-video", {
+      type,
+      currentTime,
+    });
   });
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
+
+    for (const roomId in rooms) {
+      const room = rooms[roomId];
+
+      if (room.users[socket.id]) {
+        const userId = room.users[socket.id];
+
+        delete room.users[socket.id];
+
+        if (room.hostUserId === userId) {
+          console.log("Host disconnected, waiting for reconnect...");
+
+          setTimeout(() => {
+            const stillConnected = Object.values(room.users).includes(userId);
+
+            if (!stillConnected) {
+              const remainingUsers = Object.values(room.users);
+
+              if (remainingUsers.length > 0) {
+                room.hostUserId = remainingUsers[0];
+                console.log("New host assigned:", room.hostUserId);
+              } else {
+                delete rooms[roomId];
+                console.log("Room deleted:", roomId);
+              }
+            } else {
+              console.log("Host reconnected, no reassignment needed");
+            }
+          }, 2000);
+        }
+      }
+    }
   });
 });
 
-app.get("/health",(req,res) =>{
+app.get("/health", (req, res) => {
   res.status(200).json({
-    status:"ok",
-    uptime:process.uptime(),
-    timeStamp:Date.now()
-  })
-})
+    status: "ok",
+    uptime: process.uptime(),
+    timeStamp: Date.now(),
+  });
+});
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

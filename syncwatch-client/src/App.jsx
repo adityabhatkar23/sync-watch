@@ -3,6 +3,12 @@ import { io } from "socket.io-client";
 
 const socket = io(import.meta.env.VITE_BACKEND_URL);
 
+let userId = localStorage.getItem("userId");
+if (!userId) {
+  userId = crypto.randomUUID();
+  localStorage.setItem("userId", userId);
+}
+
 function App() {
   const videoRef = useRef(null);
 
@@ -11,11 +17,23 @@ function App() {
   const [isHost, setIsHost] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const joinRoom = () => {
-    if (!roomId) return;
-    socket.emit("join-room", roomId);
+  const joinRoom = (id) => {
+    if (!id) return;
+    socket.emit("join-room", { roomId: id, userId });
+    localStorage.setItem("roomId", id);
+    setRoomId(id);
     setJoined(true);
   };
+  useEffect(() => {
+    const savedRoom = localStorage.getItem("roomId");
+
+    if (savedRoom) {
+      setRoomId(savedRoom);
+      setJoined(true);
+
+      socket.emit("join-room", { roomId: savedRoom, userId });
+    }
+  }, []);
 
   useEffect(() => {
     socket.on("host-info", ({ isHost }) => {
@@ -85,7 +103,7 @@ function App() {
           onChange={(e) => setRoomId(e.target.value)}
         />
 
-        <button onClick={joinRoom}>Enter Room</button>
+        <button onClick={() => joinRoom(roomId)}>Enter Room</button>
       </div>
     );
   }
