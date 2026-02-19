@@ -23,15 +23,22 @@ function App() {
     localStorage.setItem("roomId", id);
     setRoomId(id);
     setJoined(true);
+    window.history.replaceState(null, "", `?room=${id}`);
   };
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomFromURL = urlParams.get("room");
+
     const savedRoom = localStorage.getItem("roomId");
 
-    if (savedRoom) {
-      setRoomId(savedRoom);
+    const finalRoom = roomFromURL || savedRoom;
+
+    if (finalRoom) {
+      setRoomId(finalRoom);
       setJoined(true);
 
-      socket.emit("join-room", { roomId: savedRoom, userId });
+      socket.emit("join-room", { roomId: finalRoom, userId });
+      localStorage.setItem("roomId", finalRoom);
     }
   }, []);
 
@@ -97,6 +104,12 @@ function App() {
     });
   };
 
+  const shareLink = `${window.location.origin}?room=${roomId}`;
+  
+  const copyLink = () => {
+    navigator.clipboard.writeText(shareLink);
+  };
+
   const leaveRoom = () => {
     socket.emit("leave-room", { roomId });
 
@@ -128,6 +141,7 @@ function App() {
       <h3>Room: {roomId}</h3>
       <p>{isHost ? "You are Host" : "You are Viewer"}</p>
       <button onClick={leaveRoom}>Leave Room</button>
+      <button onClick={copyLink}>Share</button>
 
       <input
         type="file"
