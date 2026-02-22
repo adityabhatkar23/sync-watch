@@ -1,197 +1,32 @@
-import { useEffect, useRef, useState } from "react";
-import { io } from "socket.io-client";
-
-const socket = io(import.meta.env.VITE_BACKEND_URL);
-
-let userId = localStorage.getItem("userId");
-if (!userId) {
-  userId = crypto.randomUUID();
-  localStorage.setItem("userId", userId);
-}
-let savedUsername = localStorage.getItem("username");
+import { useState } from "react";
+import { useVideoSync } from "./hooks/useVideoSync";
+import { UsernameScreen } from "./components/UsernameScreen";
+import { JoinRoomScreen } from "./components/JoinRoomScreen";
+import { VideoPlayer } from "./components/VideoPlayer";
 
 function App() {
-  const videoRef = useRef(null);
-
-  const [roomId, setRoomId] = useState("");
-  const [joined, setJoined] = useState(false);
-  const [isHost, setIsHost] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [username, setUsername] = useState(savedUsername || "");
-  const [usernameSet, setUsernameSet] = useState(!!savedUsername);
-
-  const joinRoom = (id) => {
-    if (!id) return;
-    socket.emit("join-room", { roomId: id, userId,username });
-    localStorage.setItem("roomId", id);
-    setRoomId(id);
-    setJoined(true);
-    window.history.replaceState(null, "", `?room=${id}`);
-  };
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomFromURL = urlParams.get("room");
-
-    const savedRoom = localStorage.getItem("roomId");
-
-    const finalRoom = roomFromURL || savedRoom;
-
-    if (finalRoom) {
-      setRoomId(finalRoom);
-      setJoined(true);
-
-      socket.emit("join-room", { roomId: finalRoom, userId });
-      localStorage.setItem("roomId", finalRoom);
-    }
-  }, []);
-
-  useEffect(() => {
-    socket.on("host-info", ({ isHost }) => {
-      setIsHost(isHost);
-    });
-
-    socket.on("sync-video", ({ type, currentTime }) => {
-      const video = videoRef.current;
-      if (!video) return;
-
-      setIsSyncing(true);
-
-      video.currentTime = currentTime;
-
-      if (type === "play") video.play();
-      if (type === "pause") video.pause();
-
-      setTimeout(() => {
-        setIsSyncing(false);
-      }, 200);
-    });
-
-    socket.on("host-changed", ({ hostUserId }) => {
-      setIsHost(hostUserId === userId);
-    });
-
-    return () => {
-      socket.off("host-info");
-      socket.off("sync-video");
-      socket.off("host-changed");
-    };
-  }, []);
-
-  const handlePlay = () => {
-    if (!isHost || isSyncing) return;
-
-    socket.emit("video-event", {
-      roomId,
-      type: "play",
-      currentTime: videoRef.current.currentTime,
-    });
-  };
-
-  const handlePause = () => {
-    if (!isHost || isSyncing) return;
-
-    socket.emit("video-event", {
-      roomId,
-      type: "pause",
-      currentTime: videoRef.current.currentTime,
-    });
-  };
-
-  const handleSeek = () => {
-    if (!isHost || isSyncing) return;
-
-    socket.emit("video-event", {
-      roomId,
-      type: "seek",
-      currentTime: videoRef.current.currentTime,
-    });
-  };
-
-  const shareLink = `${window.location.origin}?room=${roomId}`;
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(shareLink);
-  };
-
-  const leaveRoom = () => {
-    socket.emit("leave-room", { roomId });
-
-    localStorage.removeItem("roomId");
-
-    setJoined(false);
-    setIsHost(false);
-    setRoomId("");
-  };
+  const [usernameSet, setUsernameSet] = useState(!!localStorage.getItem("username"));
+  const { 
+    videoRef, roomId, setRoomId, joined, isHost, 
+    joinRoom, leaveRoom, emitVideoEvent 
+  } = useVideoSync();
 
   if (!usernameSet) {
-  return (
-    <div style={{ padding: "40px" }}>
-      <h2>Enter Username</h2>
-
-      <input
-        type="text"
-        placeholder="Your name"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      />
-
-      <button
-        onClick={() => {
-          if (!username.trim()) return;
-          localStorage.setItem("username", username.trim());
-          setUsernameSet(true);
-        }}
-      >
-        Continue
-      </button>
-    </div>
-  );
-}
-
+    return <UsernameScreen onComplete={() => setUsernameSet(true)} />;
+  }
 
   if (!joined) {
-    return (
-      <div style={{ padding: "40px" }}>
-        <h2>Join or Create Room</h2>
-
-        <input
-          type="text"
-          placeholder="Enter Room ID"
-          onChange={(e) => setRoomId(e.target.value)}
-        />
-
-        <button onClick={() => joinRoom(roomId)}>Enter Room</button>
-      </div>
-    );
+    return <JoinRoomScreen roomId={roomId} setRoomId={setRoomId} onJoin={joinRoom} />;
   }
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h3>Room: {roomId}</h3>
-      <p>{isHost ? "You are Host" : "You are Viewer"}</p>
-      <button onClick={leaveRoom}>Leave Room</button>
-      <button onClick={copyLink}>Share</button>
-
-      <input
-        type="file"
-        accept="video/*"
-        onChange={(e) => {
-          const file = e.target.files[0];
-          if (file) {
-            videoRef.current.src = URL.createObjectURL(file);
-          }
-        }}
-      />
-
-      <video
-        ref={videoRef}
-        controls
-        width="700"
-        onPlay={handlePlay}
-        onPause={handlePause}
-        onSeeked={handleSeek}
-      />
-    </div>
+    <VideoPlayer 
+      videoRef={videoRef}
+      roomId={roomId}
+      isHost={isHost}
+      onLeave={leaveRoom}
+      onEvent={emitVideoEvent}
+    />
   );
 }
 
