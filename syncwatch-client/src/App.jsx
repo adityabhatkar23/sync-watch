@@ -8,6 +8,7 @@ if (!userId) {
   userId = crypto.randomUUID();
   localStorage.setItem("userId", userId);
 }
+let savedUsername = localStorage.getItem("username");
 
 function App() {
   const videoRef = useRef(null);
@@ -16,10 +17,12 @@ function App() {
   const [joined, setJoined] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [username, setUsername] = useState(savedUsername || "");
+  const [usernameSet, setUsernameSet] = useState(!!savedUsername);
 
   const joinRoom = (id) => {
     if (!id) return;
-    socket.emit("join-room", { roomId: id, userId });
+    socket.emit("join-room", { roomId: id, userId,username });
     localStorage.setItem("roomId", id);
     setRoomId(id);
     setJoined(true);
@@ -105,7 +108,7 @@ function App() {
   };
 
   const shareLink = `${window.location.origin}?room=${roomId}`;
-  
+
   const copyLink = () => {
     navigator.clipboard.writeText(shareLink);
   };
@@ -119,6 +122,32 @@ function App() {
     setIsHost(false);
     setRoomId("");
   };
+
+  if (!usernameSet) {
+  return (
+    <div style={{ padding: "40px" }}>
+      <h2>Enter Username</h2>
+
+      <input
+        type="text"
+        placeholder="Your name"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
+
+      <button
+        onClick={() => {
+          if (!username.trim()) return;
+          localStorage.setItem("username", username.trim());
+          setUsernameSet(true);
+        }}
+      >
+        Continue
+      </button>
+    </div>
+  );
+}
+
 
   if (!joined) {
     return (
