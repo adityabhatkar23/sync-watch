@@ -1,1 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-jetbrains: "JetBrains Mono", monospace;
+  --font-pixel: "Press Start 2P", cursive;
+
+  --color-ice-blue: #8ed1fc;
+  --color-deep-navy: #0f3460;
+  --color-accent-white: #eaeaea;
+  --color-near-black: #0a0a0a;
+}
+
+@layer utilities {
+  .pixel-font {
+    font-family: var(--font-pixel);
+    -webkit-font-smoothing: none;
+    image-rendering: pixelated;
+  }
+
+  .pixel-3d-shadow {
+    position: relative;
+    z-index: 10;
+    color: var(--color-ice-blue);
+    -webkit-text-stroke: 1.5px var(--color-accent-white);
+
+    &::after {
+      content: attr(data-text);
+      position: absolute;
+      left: 24px;
+      top: 24px;
+      z-index: -1;
+      color: transparent;
+      -webkit-text-stroke: 3px var(--color-deep-navy);
+      white-space: nowrap;
+    }
+  }
+
+  /* Responsive adjustments */
+  @variant md {
+    .pixel-3d-shadow {
+      -webkit-text-stroke: 1px var(--color-accent-white);
+      
+      &::after {
+        /* Adjusted mobile distance for smaller screens */
+        left: 12px;
+        top: 12px;
+        -webkit-text-stroke: 2px var(--color-deep-navy);
+      }
+    }
+  }
+}

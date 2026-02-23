@@ -1,20 +1,13 @@
 import React, { useState } from "react";
+import Logo from "./Logo";
+import { Login } from "./Login";
 export const UsernameScreen = ({ onComplete }) => {
   const [name, setName] = useState(localStorage.getItem("username") || "");
 
   return (
-    <div style={{ padding: "40px" }}>
-      <h2>Enter Username</h2>
-      <input 
-        value={name} 
-        onChange={(e) => setName(e.target.value)} 
-        placeholder="Your name" 
-      />
-      <button onClick={() => {
-        if (!name.trim()) return;
-        localStorage.setItem("username", name.trim());
-        onComplete();
-      }}>Continue</button>
+    <div className="h-screen w-screen flex items-center justify-center lg:flex-row flex-col bg-near-black  gap-8 font-jetbrains text-accent-white">
+      <Logo />
+      <Login onComplete={onComplete}/>
     </div>
   );
 };

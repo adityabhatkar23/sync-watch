@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { v4 as uuidv4 } from 'uuid';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL);
-const userId = localStorage.getItem("userId") || crypto.randomUUID();
+const userId = localStorage.getItem("userId") || uuidv4();
 localStorage.setItem("userId", userId);
 
 export const useVideoSync = () => {
@@ -71,6 +72,7 @@ export const useVideoSync = () => {
     setJoined(false);
     setIsHost(false);
     setRoomId("");
+    window.history.replaceState(null, "", window.location.pathname);
   };
 
   return {

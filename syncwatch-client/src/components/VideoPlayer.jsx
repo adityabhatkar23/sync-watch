@@ -5,7 +5,8 @@ export const VideoPlayer = ({ videoRef, roomId, isHost, onLeave, onEvent }) => {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
+    <div className="h-screen w-screen flex items-center justify-center lg:flex-row flex-col bg-near-black  gap-8 font-jetbrains text-accent-white">
+      
       <h3>Room: {roomId}</h3>
       <p>{isHost ? "⭐ Host" : "Viewer"}</p>
       <button onClick={onLeave}>Leave Room</button>

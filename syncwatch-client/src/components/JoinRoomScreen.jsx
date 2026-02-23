@@ -1,6 +1,10 @@
 import React, { useState } from "react";
+import Logo from "./Logo";
+
 export const JoinRoomScreen = ({ roomId, setRoomId, onJoin }) => (
-  <div style={{ padding: "40px" }}>
+  <div className="h-screen w-screen flex items-center justify-center lg:flex-row flex-col bg-near-black  gap-8 font-jetbrains text-accent-white">
+    <Logo />
+
     <h2>Join or Create Room</h2>
     <input
       type="text"
