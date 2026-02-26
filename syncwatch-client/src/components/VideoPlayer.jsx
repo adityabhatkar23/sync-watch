@@ -5,20 +5,27 @@ export const VideoPlayer = ({ videoRef, roomId, isHost, onLeave, onEvent }) => {
   };
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center lg:flex-row flex-col bg-near-black  gap-8 font-jetbrains text-accent-white">
-      
-      <h3>Room: {roomId}</h3>
-      <p>{isHost ? "⭐ Host" : "Viewer"}</p>
-      <button onClick={onLeave}>Leave Room</button>
-      <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}?room=${roomId}`)}>
-        Share Link
-      </button>
+    <div className="h-screen w-screen flex items-center justify-center  flex-col bg-near-black  gap-8 font-jetbrains text-accent-white p-4">
+      <div className=" flex gap-12">
+        <h3>Room: {roomId}</h3>
+        <p>{isHost ? "⭐ Host" : "Viewer"}</p>
+        <button onClick={onLeave}>Leave Room</button>
+        <button
+          onClick={() =>
+            navigator.clipboard.writeText(
+              `${window.location.origin}?room=${roomId}`,
+            )
+          }
+        >
+          Share Link
+        </button>
+      </div>
 
       <div style={{ margin: "20px 0" }}>
         <input type="file" accept="video/*" onChange={handleFileChange} />
       </div>
 
-      <video
+      <video className="md:h-96 rounded-2xl h-56"
         ref={videoRef}
         controls
         width="700"
