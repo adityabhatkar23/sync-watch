@@ -23,28 +23,55 @@ const rooms = {};
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  socket.on("join-room", ({ roomId, userId }) => {
-    socket.join(roomId);
-
-    if (!rooms[roomId]) {
-      rooms[roomId] = {
-        hostUserId: userId,
-        users: {},
-        state: {
-          currentTime: 0,
-          isPlaying: false,
-        },
-      };
+  socket.on("create-room", ({ roomId, userId }) => {
+    if (rooms[roomId]) {
+      socket.emit("room-error", { message: "Room already exists" });
+      return;
     }
 
+    socket.join(roomId);
+
+    rooms[roomId] = {
+      hostUserId: userId,
+      users: {},
+      state: {
+        currentTime: 0,
+        isPlaying: false,
+      },
+    };
+
     rooms[roomId].users[socket.id] = userId;
+
+    socket.emit("host-info", { isHost: true });
+
+    socket.emit("sync-video", {
+      type: "pause",
+      currentTime: 0,
+    });
+    socket.emit("room-joined", { roomId });
+  });
+
+  socket.on("join-room", ({ roomId, userId }) => {
+    if (!rooms[roomId]) {
+      socket.emit("room-error", { message: "Room does not exist" });
+      return;
+    }
+
+    socket.join(roomId);
+
+    rooms[roomId].users[socket.id] = userId;
+
     const isHost = rooms[roomId].hostUserId === userId;
+
     socket.emit("host-info", { isHost });
+
     const { currentTime, isPlaying } = rooms[roomId].state;
+
     socket.emit("sync-video", {
       type: isPlaying ? "play" : "pause",
       currentTime,
     });
+    socket.emit("room-created", { roomId });
   });
 
   socket.on("video-event", ({ roomId, type, currentTime }) => {
@@ -101,31 +128,30 @@ io.on("connection", (socket) => {
   });
 
   socket.on("leave-room", ({ roomId }) => {
-  const room = rooms[roomId];
-  if (!room) return;
+    const room = rooms[roomId];
+    if (!room) return;
 
-  const userId = room.users[socket.id];
-  delete room.users[socket.id];
+    const userId = room.users[socket.id];
+    delete room.users[socket.id];
 
-  socket.leave(roomId);
+    socket.leave(roomId);
 
-  if (room.hostUserId === userId) {
-    const remainingUsers = Object.values(room.users);
+    if (room.hostUserId === userId) {
+      const remainingUsers = Object.values(room.users);
 
-    if (remainingUsers.length > 0) {
-      room.hostUserId = remainingUsers[0];
-      console.log("New host assigned:", room.hostUserId);
+      if (remainingUsers.length > 0) {
+        room.hostUserId = remainingUsers[0];
+        console.log("New host assigned:", room.hostUserId);
 
-      io.to(roomId).emit("host-changed", {
-        hostUserId: room.hostUserId,
-      });
-    } else {
-      delete rooms[roomId];
-      console.log("Room deleted:", roomId);
+        io.to(roomId).emit("host-changed", {
+          hostUserId: room.hostUserId,
+        });
+      } else {
+        delete rooms[roomId];
+        console.log("Room deleted:", roomId);
+      }
     }
-  }
-});
-
+  });
 });
 
 app.get("/health", (req, res) => {

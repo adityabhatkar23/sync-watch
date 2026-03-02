@@ -1,34 +1,25 @@
+import Navbar from "./NavBar";
+
+
 export const VideoPlayer = ({ videoRef, roomId, isHost, onLeave, onEvent }) => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) videoRef.current.src = URL.createObjectURL(file);
+    if (file && videoRef.current) {
+      videoRef.current.src = URL.createObjectURL(file);
+    }
   };
-
   return (
-    <div className="h-screen w-screen flex items-center justify-center  flex-col bg-near-black  gap-8 font-jetbrains text-accent-white p-4">
-      <div className=" flex gap-12">
-        <h3>Room: {roomId}</h3>
-        <p>{isHost ? "⭐ Host" : "Viewer"}</p>
-        <button onClick={onLeave}>Leave Room</button>
-        <button
-          onClick={() =>
-            navigator.clipboard.writeText(
-              `${window.location.origin}?room=${roomId}`,
-            )
-          }
-        >
-          Share Link
-        </button>
-      </div>
-
-      <div style={{ margin: "20px 0" }}>
-        <input type="file" accept="video/*" onChange={handleFileChange} />
-      </div>
-
-      <video className="md:h-96 rounded-2xl h-56"
+    <div className="flex- flex flex-col items-center p-4 min-h-screen w-screen bg-near-black">
+      <Navbar
+        roomId={roomId}
+        isHost={isHost}
+        onLeave={onLeave}
+        onFileChange={handleFileChange}
+      />
+      <video
+        className="md:h-[500px] w-full max-w-4xl rounded-2xl"
         ref={videoRef}
         controls
-        width="700"
         onPlay={() => onEvent("play")}
         onPause={() => onEvent("pause")}
         onSeeked={() => onEvent("seek")}
