@@ -10,7 +10,7 @@ require("dotenv").config();
 
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET;
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const CLIENT_URL = process.env.CLIENT_URL;
 
 if (!JWT_SECRET) throw new Error("JWT_SECRET env variable is not set");
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL env variable is not set");
@@ -166,28 +166,49 @@ function parseCookie(cookieStr, name) {
   return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
 }
 
+function generateRoomCode(length = 6) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+  let code;
+
+  do {
+    code = Array.from({ length }, () =>
+      chars.charAt(Math.floor(Math.random() * chars.length))
+    ).join("");
+  } while (rooms[code]);
+
+  return code;
+}
+
 const rooms = {};
 
 io.on("connection", (socket) => {
   const { id: userId, username } = socket.user;
   console.log(`[connect] ${username} (${userId}) — socket ${socket.id}`);
 
-  socket.on("create-room", ({ roomId }) => {
-    if (rooms[roomId]) {
-      socket.emit("room-error", { message: "Room already exists" });
-      return;
-    }
+  socket.on("create-room", () => {
+    console.log("CREATE ROOM EVENT RECEIVED");
+  
+    const roomId = generateRoomCode();
+  
+    console.log("GENERATED ROOM:", roomId);
+  
     socket.join(roomId);
+  
     rooms[roomId] = {
       hostUserId: userId,
-      users: { [socket.id]: userId },
-      state: { currentTime: 0, isPlaying: false },
+      users: {
+        [socket.id]: userId,
+      },
+      state: {
+        currentTime: 0,
+        isPlaying: false,
+      },
     };
-
-    socket.emit("host-info", { isHost: true });
-    socket.emit("sync-video", { type: "pause", currentTime: 0 });
-    socket.emit("room-joined", { roomId });
-    console.log(`[create-room] ${username} created room ${roomId}`);
+  
+    socket.emit("room-created", {
+      roomId,
+    });
   });
 
   socket.on("join-room", ({ roomId }) => {
@@ -223,10 +244,14 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log(`[disconnect] ${username} — socket ${socket.id}`);
+    console.log(
+      `[disconnect] ${username} — socket ${socket.id}`
+    );
   
     for (const roomId in rooms) {
-      if (rooms[roomId]?.users[socket.id] !== undefined) {
+      if (
+        rooms[roomId]?.users[socket.id] !== undefined
+      ) {
         handleLeave(socket, roomId, userId, username);
       }
     }

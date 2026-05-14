@@ -21,7 +21,7 @@ export const JoinRoomScreen = ({ roomId, setRoomId, onJoin, onCreate }) => (
             <Button variant="primary" onClick={() => onJoin(roomId)}>
               Join Room
             </Button>
-            <Button variant="secondary" onClick={() => onCreate(roomId)}>
+            <Button variant="secondary" onClick={onCreate}>
               Create Room
             </Button>
           </div>

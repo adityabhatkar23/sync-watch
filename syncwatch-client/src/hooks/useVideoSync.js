@@ -130,17 +130,8 @@ export const useVideoSync = () => {
     });
   };
 
-  const createRoom = (id) => {
-    const socket = socketRef.current;
-
-    if (!id?.trim()) {
-      alert("Room name is required");
-      return;
-    }
-
-    socket.emit("create-room", {
-      roomId: id.trim(),
-    });
+  const createRoom = () => {
+    socketRef.current?.emit("create-room");
   };
 
   const joinRoom = (id) => {
