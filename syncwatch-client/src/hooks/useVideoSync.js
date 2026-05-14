@@ -1,102 +1,185 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { v4 as uuidv4 } from "uuid";
-
-const socket = io(import.meta.env.VITE_BACKEND_URL);
-const userId = localStorage.getItem("userId") || uuidv4();
-localStorage.setItem("userId", userId);
 
 export const useVideoSync = () => {
+  const socketRef = useRef(null);
   const videoRef = useRef(null);
+
+  const syncingRef = useRef(false);
+
   const [roomId, setRoomId] = useState(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get("room") || localStorage.getItem("roomId") || "";
+    const params = new URLSearchParams(window.location.search);
+
+    return (
+      params.get("room") ||
+      localStorage.getItem("roomId") ||
+      ""
+    );
   });
-  const [joined, setJoined] = useState(!!localStorage.getItem("roomId"));
+
+  const [joined, setJoined] = useState(false);
   const [isHost, setIsHost] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    socket.on("host-info", ({ isHost }) => setIsHost(isHost));
-    socket.on("host-changed", ({ hostUserId }) =>
-      setIsHost(hostUserId === userId),
-    );
+    const socket = io(import.meta.env.VITE_BACKEND_URL, {
+      withCredentials: true,
+      autoConnect: true,
+    });
 
-    socket.on("sync-video", ({ type, currentTime }) => {
+    socketRef.current = socket;
+
+    function onHostInfo({ isHost }) {
+      setIsHost(isHost);
+    }
+
+    function onHostChanged({ hostSocketId }) {
+      setIsHost(socket.id === hostSocketId);
+    }
+
+    function onSyncVideo({ type, currentTime }) {
       const video = videoRef.current;
+
       if (!video) return;
 
-      setIsSyncing(true);
-      video.currentTime = currentTime;
-      if (type === "play") video.play();
-      if (type === "pause") video.pause();
+      syncingRef.current = true;
 
-      setTimeout(() => setIsSyncing(false), 200);
-    });
-    socket.on("room-joined", ({ roomId }) => {
+      if (Math.abs(video.currentTime - currentTime) > 0.5) {
+        video.currentTime = currentTime;
+      }
+
+      if (type === "play") {
+        video.play().catch(() => {});
+      }
+
+      if (type === "pause") {
+        video.pause();
+      }
+
+      setTimeout(() => {
+        syncingRef.current = false;
+      }, 300);
+    }
+
+    function onRoomJoined({ roomId }) {
       setRoomId(roomId);
       setJoined(true);
-      localStorage.setItem("roomId", roomId);
-      window.history.replaceState(null, "", `?room=${roomId}`);
-    });
 
-    socket.on("room-created", ({ roomId }) => {
+      localStorage.setItem("roomId", roomId);
+
+      window.history.replaceState(
+        null,
+        "",
+        `?room=${roomId}`
+      );
+    }
+
+    function onRoomCreated({ roomId }) {
       setRoomId(roomId);
       setJoined(true);
+
       localStorage.setItem("roomId", roomId);
-      window.history.replaceState(null, "", `?room=${roomId}`);
-    });
-    socket.on("room-error", ({ message }) => {
+
+      window.history.replaceState(
+        null,
+        "",
+        `?room=${roomId}`
+      );
+    }
+
+    function onRoomError({ message }) {
       alert(message);
-    });
+    }
+
+    socket.on("host-info", onHostInfo);
+    socket.on("host-changed", onHostChanged);
+    socket.on("sync-video", onSyncVideo);
+    socket.on("room-joined", onRoomJoined);
+    socket.on("room-created", onRoomCreated);
+    socket.on("room-error", onRoomError);
 
     return () => {
-      socket.off("host-info");
-      socket.off("sync-video");
-      socket.off("host-changed");
-      socket.off("room-error");
-      socket.off("room-joined");
-      socket.off("room-created");
+      socket.off("host-info", onHostInfo);
+      socket.off("host-changed", onHostChanged);
+      socket.off("sync-video", onSyncVideo);
+      socket.off("room-joined", onRoomJoined);
+      socket.off("room-created", onRoomCreated);
+      socket.off("room-error", onRoomError);
+
+      socket.disconnect();
     };
   }, []);
 
   const emitVideoEvent = (type) => {
-    if (!isHost || isSyncing || !videoRef.current) return;
+    const socket = socketRef.current;
+    const video = videoRef.current;
+
+    if (
+      !socket ||
+      !video ||
+      !isHost ||
+      syncingRef.current ||
+      !roomId
+    ) {
+      return;
+    }
+
     socket.emit("video-event", {
       roomId,
       type,
-      currentTime: videoRef.current.currentTime,
+      currentTime: video.currentTime,
     });
   };
 
   const createRoom = (id) => {
-    if (!id) {
+    const socket = socketRef.current;
+
+    if (!id?.trim()) {
       alert("Room name is required");
       return;
     }
-    const username = localStorage.getItem("username");
-    socket.emit("create-room", { roomId: id, userId, username });
-    setRoomId(id);
-    localStorage.setItem("roomId", id);
-    window.history.replaceState(null, "", `?room=${id}`);
+
+    socket.emit("create-room", {
+      roomId: id.trim(),
+    });
   };
 
   const joinRoom = (id) => {
-    const username = localStorage.getItem("username");
+    const socket = socketRef.current;
+
+    if (!id?.trim()) {
+      alert("Room name is required");
+      return;
+    }
+
     socket.emit("join-room", {
-      roomId: id,
-      userId,
-      username,
+      roomId: id.trim(),
     });
   };
 
   const leaveRoom = () => {
+    const socket = socketRef.current;
+
     socket.emit("leave-room", { roomId });
+
     localStorage.removeItem("roomId");
+
     setJoined(false);
     setIsHost(false);
     setRoomId("");
-    window.history.replaceState(null, "", window.location.pathname);
+
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname
+    );
+  };
+
+  const connectSocket = () => {
+    socketRef.current?.connect();
+  };
+
+  const disconnectSocket = () => {
+    socketRef.current?.disconnect();
   };
 
   return {
@@ -109,5 +192,7 @@ export const useVideoSync = () => {
     leaveRoom,
     emitVideoEvent,
     createRoom,
+    connectSocket,
+    disconnectSocket,
   };
 };

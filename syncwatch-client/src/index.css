@@ -37,13 +37,11 @@
     }
   }
 
-  /* Responsive adjustments */
   @variant md {
     .pixel-3d-shadow {
       -webkit-text-stroke: 1px var(--color-accent-white);
       
       &::after {
-        /* Adjusted mobile distance for smaller screens */
         left: 12px;
         top: 12px;
         -webkit-text-stroke: 2px var(--color-deep-navy);
