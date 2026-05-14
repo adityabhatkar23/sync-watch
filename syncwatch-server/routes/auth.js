@@ -6,12 +6,11 @@ import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET;
-const IS_PROD = process.env.NODE_ENV === "production";
 
 const cookieOptions = {
-  httpOnly: true,              
-  secure: IS_PROD,             
-  sameSite: IS_PROD ? "strict" : "lax",
+  httpOnly: true,
+  secure: true,
+  sameSite: "none",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 

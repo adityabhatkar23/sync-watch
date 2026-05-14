@@ -29,14 +29,12 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-const IS_PROD = process.env.NODE_ENV === "production";
 const cookieOptions = {
   httpOnly: true,
-  secure: IS_PROD,
-  sameSite: IS_PROD ? "strict" : "lax",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  secure: true,
+  sameSite: "none",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
-
 function requireAuth(req, res, next) {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ message: "Not authenticated" });
